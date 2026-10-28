@@ -1,0 +1,13 @@
+{
+  "name": "youtube-upload-date-filters",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/dates.test.js && node tests/api.test.js",
+    "build": "node scripts/build.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,10 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+let handler,key='local-key',response={ok:true,json:async()=>({items:[],nextPageToken:'next'})},requested;
+globalThis.chrome={runtime:{id:'test',onInstalled:{addListener(){}},onMessage:{addListener(h){handler=h;}}},storage:{local:{get:async()=>({apiKey:key})}}};
+globalThis.fetch=async url=>{requested=new URL(url);return response;};
+await import('../extension/background.js');
+const sender={id:'test',tab:{url:'https://www.youtube.com/results?search_query=cats'}};
+const call=m=>new Promise(resolve=>handler({type:'search',query:'cats',interval:'y3',asOf:'2026-10-28T12:00:00Z',...m},sender,resolve));
+test('API uses documented bounds and preserves query and pagination timestamp',async()=>{const result=await call({pageToken:'token'});assert.equal(result.nextPageToken,'next');assert.equal(requested.searchParams.get('publishedAfter'),'2023-10-28T12:00:00.000Z');assert.equal(requested.searchParams.get('publishedBefore'),'2026-10-28T12:00:00.000Z');assert.equal(requested.searchParams.get('q'),'cats');assert.equal(requested.searchParams.get('pageToken'),'token');assert.equal(requested.searchParams.get('type'),'video');});
+test('missing key is actionable',async()=>{key='';assert.match((await call()).error,/Configure/);key='local-key';});
+test('quota failure is actionable',async()=>{response={ok:false,status:403,json:async()=>({error:{errors:[{reason:'quotaExceeded'}]}})};assert.match((await call()).error,/quota exceeded/);});

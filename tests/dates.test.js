@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import '../extension/dates.js';
+const {range,intervals}=globalThis.UploadDates;
+test('all 18 options produce ordered rolling ranges',()=>{assert.equal(intervals.length,18);for(const i of intervals){const r=range(i.id,new Date('2026-10-28T12:30:45Z'));assert.ok(r.publishedAfter<r.publishedBefore);assert.equal(r.publishedBefore,'2026-10-28T12:30:45.000Z');}});
+for(const [id,now,expected] of [['w2','2026-01-05','2025-12-22'],['w3','2024-03-10','2024-02-18'],['w4','2024-03-28','2024-02-29'],['m2','2024-04-30','2024-02-29'],['m2','2025-04-30','2025-02-28'],['m3','2026-05-31','2026-02-28'],['m12','2024-02-29','2023-02-28'],['y3','2024-02-29','2021-02-28'],['y4','2024-02-29','2020-02-29'],['y5','2026-10-28','2021-10-28']])test(`${id} from ${now}`,()=>assert.equal(range(id,new Date(now+'T13:14:15.123Z')).publishedAfter,expected+'T13:14:15.123Z'));
+test('reject invalid input',()=>{assert.throws(()=>range('m1'));assert.throws(()=>range('w2',new Date('bad')));});

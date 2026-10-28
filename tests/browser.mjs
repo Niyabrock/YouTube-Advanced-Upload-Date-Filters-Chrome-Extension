@@ -1,0 +1,33 @@
+import {createRequire} from 'node:module';
+import {readFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const require=createRequire(import.meta.url);
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+try {
+ const page=await browser.newPage();
+ await page.route('https://www.youtube.com/**',route=>route.fulfill({contentType:'text/html',body:'<html><body><ytd-search><div id="contents"><ytd-section-list-renderer><div id="contents"><ytd-item-section-renderer>Native videos</ytd-item-section-renderer></div></ytd-section-list-renderer></div></ytd-search><ytd-search-filter-group-renderer><div id="title">Upload date</div><a href="?sp=EgIIAQ%3D%3D">Last hour</a></ytd-search-filter-group-renderer></body></html>'}));
+ await page.goto('https://www.youtube.com/results?search_query=example');
+ await page.evaluate(()=>{window.chrome={runtime:{sendMessage:async m=>({items:[{id:'abcdefghijk',title:'A safe title <script>',channel:'Channel',published:'2025-01-01',description:'Description'}],bounds:{publishedAfter:'2023-01-01',publishedBefore:'2026-01-01'}})}};});
+ await page.addScriptTag({content:await readFile('extension/dates.js','utf8')});
+ await page.addScriptTag({content:await readFile('extension/content.js','utf8')});
+ await page.addStyleTag({content:await readFile('extension/styles.css','utf8')});
+ assert.equal(await page.locator('.ud-control').count(),1);
+ await page.locator('.ud-toggle').click();
+ assert.equal(await page.locator('[data-interval]').count(),18);
+ await page.getByRole('button',{name:'Last 3 years',exact:true}).click();
+ await page.locator('.ud-card').waitFor();
+ assert.match(page.url(),/upload_interval=y3/);
+ assert.equal(await page.locator('.ud-card script').count(),0);
+ assert.equal(await page.locator('ytd-item-section-renderer').evaluate(n=>n.hidden),true);
+ await page.locator('.ud-toggle').click();
+ assert.equal(await page.locator('[data-interval=y3]').getAttribute('aria-pressed'),'true');
+ await page.evaluate(()=>document.dispatchEvent(new Event('yt-navigate-finish')));
+ assert.equal(await page.locator('.ud-control').count(),1);
+ await page.getByRole('button',{name:'Return to native results'}).click();
+ assert.equal(await page.locator('.ud-results').count(),0);
+ assert.equal(await page.locator('ytd-item-section-renderer').evaluate(n=>n.hidden),false);
+ await page.evaluate(()=>{document.querySelector('.ud-control').remove();document.querySelector('#title').append(' ');});
+ await page.locator('.ud-control').waitFor();
+ console.log('PASS: Chromium fixture integration, 18 options, selection, rendering, reopen, SPA event, clear, reinjection, safe text');
+}finally{await browser.close();}

@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "More YouTube Upload Dates",
+  "version": "1.0.0",
+  "description": "Rolling upload-date ranges inside YouTube Search Filters, powered by YouTube Data API.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.googleapis.com/*"],
+  "background": {"service_worker": "background.js", "type": "module"},
+  "options_page": "options.html",
+  "content_scripts": [{"matches": ["https://www.youtube.com/*"], "js": ["dates.js", "content.js"], "css": ["styles.css"]}]
+}
