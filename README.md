@@ -1,57 +1,91 @@
-# More YouTube Upload Dates
+# More YouTube Upload Dates — 1.0.2
 
-Manifest V3 extension that adds **More upload dates** beneath YouTube's native Upload date filters. Includes 2–4 weeks, 2–12 months, and 2–5 years. No runtime libraries, popup, remote executable code, or build dependencies.
+An update to the existing Manifest V3 extension. **More upload dates** stays in YouTube’s native Upload date section. Version 1.0.2 removes the custom API-result cards and sends date searches to the normal `youtube.com/results` page, leaving YouTube to render its own videos, metadata, previews and continuation results.
 
-## Install
+**Important: native date search is experimental.** Live YouTube access is blocked in this build environment (proxy HTTP 403). The extension’s navigation and date calculations are tested, but YouTube’s recognition, inclusivity, timezone interpretation and completeness of `after:`/`before:` searches have **not** been verified. The dropdown displays this limitation. Do not treat this release as proof of accurate native date enforcement. Complete the live checks below before relying on it.
 
-1. Run `npm run build` with Node 20 or later.
-2. Open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select this project's `dist` directory.
-3. Open the extension's **Options**. In Google Cloud Console, enable **YouTube Data API v3**, create an API key, restrict it to YouTube Data API v3, and save it in Options.
-4. Reload YouTube. Search, open **Filters**, expand **More upload dates**, and select an interval. Use **Load more** for additional API pages. Clear the interval to restore native results.
+## Install or update on Mac
 
-The extension must be reloaded in Chrome after rebuilding. Development sources are in `extension/`; `dist/` is an unpacked release folder.
+Use the supplied `more-youtube-upload-dates-1.0.2.zip`, extract it, and select the extracted folder containing `manifest.json` in Chrome’s **Load unpacked** dialog. No build or API key is needed for native searches.
 
-## How filtering works
+For an existing installation, replace the contents of the existing unpacked extension directory with the new ZIP contents (or this repository’s `dist/` contents), keeping the same directory path. Open `chrome://extensions`, click **Reload**, confirm version **1.0.2**, and reload all open YouTube tabs. Keeping the same path retains the extension ID and its saved key. The key is unused by native search; Options still supports replacing/removing it for compatibility.
 
-YouTube's native `sp` parameter encodes preset filters; it is not a documented arbitrary-date interface. This extension does not invent date codes or rely on undocumented `after:`/`before:` query syntax. It calls the documented YouTube Data API v3 `search.list` endpoint with `q`, `type=video`, `publishedAfter`, `publishedBefore`, `order=relevance`, and pagination tokens. These search the API's video index; they do not merely remove old items from the currently loaded native page.
+Source lives in `extension/`. `dist/` contains everything Chrome needs. A repository ZIP also works: extract it and Load unpacked from its **dist** directory.
 
-Ranges end at the selection instant. Weeks subtract 7 UTC calendar days per week; months and years subtract calendar units and clamp to the destination month's final day. For example, February 29 minus three years becomes February 28. Time of day and milliseconds remain intact. UTC avoids daylight-saving arithmetic shifts. API boundaries follow Google's endpoint semantics. Pagination holds the initial timestamp fixed; selecting again or refreshing recomputes the rolling window.
+## Controls and date definitions
 
-The selection is recorded in `upload_interval` in the current URL, so refresh, history, and panel reopening preserve it. Query changes preserve the interval only if the new URL retains that parameter; otherwise native mode resumes. Native filter selections leave API mode. No background polling runs: a batched MutationObserver and YouTube navigation events reattach controls as needed.
+These exact options appear in this order inside **More upload dates**:
 
-## Honest limitations
+1. Today
+2. This week
+3. This month
+4. Last 3 months
+5. Last 6 months
+6. This year
+7. Last 2 years
+8. Last 3 years
+9. Last 5 years
+10. Custom date range
 
-API results replace the visible native result items while an extra interval is active and are labeled accordingly. Clearing restores native items. Native results stay hidden during loading, errors, and empty responses; API errors never leave unfiltered videos presented as a successful custom search. The native filter panel, links, URL parameters, and listeners remain intact. Native `sp` filters and sorting cannot be mapped reliably without depending on an undocumented encoding, so **they are not applied in API mode**. The UI states this explicitly. API mode includes videos only, uses relevance sorting, and may differ from YouTube's personalized results. API pagination and result availability have Google's limits; no claim of exhaustive access is made.
+Existing native YouTube filter options above this control are preserved. **Custom date range** expands labeled start/end date fields; both dates are intended to be included. Invalid/reversed dates and future end dates are rejected. **Clear date operators** returns to the ordinary query, retaining other URL parameters and quoted literal date terms.
 
-The group detector uses desktop renderer names, known preset links, and an English heading fallback. Changed markup or unsupported localized layouts may prevent insertion; native functionality remains available. Styling inherits YouTube tokens, uses Roboto, supports dark mode, and keeps the expanded list in normal flow. Pixel accuracy across current YouTube variants has not been verified. No reference screenshots were provided.
+Calendar periods use the computer’s **local** calendar: Today starts at local midnight; This week starts Monday; This month starts on day 1; This year starts January 1. Each ends today. Rolling months/years subtract calendar months from today and clamp to the destination month’s last day, including February 29. No 30-day month approximation is used. Boundaries are calculated when clicked, not automatically refreshed later.
 
-The API key is kept in `chrome.storage.local`, restricted to trusted extension contexts, never sent to the page, and sent only by the service worker to `www.googleapis.com`. No analytics. Keys on a client device cannot be perfectly concealed. Use a dedicated project, API restrictions, monitoring, and quotas; do not use a server secret. HTTP referrer restrictions may not work with extension-origin requests. Each search/page normally costs 100 quota units. A typical 10,000-unit daily quota permits roughly 100 searches/pages. No credentials are included in the project.
+## Native search implementation and limits
 
-Permissions: `storage` for the key, Google API host access for searches, and a content script matching desktop `www.youtube.com`. No tabs/history permission or extension popup.
+For an intended inclusive range of January 1–31, the extension constructs:
 
-API references: https://developers.google.com/youtube/v3/docs/search/list and https://developers.google.com/youtube/v3/determine_quota_cost
+```
+https://www.youtube.com/results?search_query=bees+after%3A2026-01-01+before%3A2026-02-01
+```
 
-## Development and validation
+The start is passed as `after:YYYY-MM-DD`; the exclusive end is the next local calendar date passed as `before:YYYY-MM-DD`. This is the **intended** interval convention, not a verified assertion about YouTube’s interpretation. Date-only operators do not carry a timezone. YouTube may interpret the dates differently, ignore them, or change support. Boundary-day videos and local-midnight behavior require live validation. The extension does not claim a guaranteed timestamp-accurate native equivalent to Data API `publishedAfter`/`publishedBefore`.
 
-- `npm test`: rolling dates and mocked service-worker API tests.
-- `npm run build`: recreates `dist/` from the source without dependencies.
-- `npm run test:browser`: Chromium integration fixtures. Requires Playwright resolvable as a package, or set `PLAYWRIGHT_MODULE` to its installed path. `CHROMIUM_PATH` overrides `/usr/bin/chromium`. By default the test executes the actual background module in a VM and connects the browser content script through an explicit messaging bridge, with simulated API responses and YouTube markup. It is not a live YouTube test. Set `REAL_EXTENSION=1` to load the unpacked build through Chromium’s extension debugging API and use actual Chrome storage/messaging/service-worker registration. That mode requires a Chromium build and administrator policy permitting unpacked extensions; it is blocked in the current cloud environment.
+Navigation uses a real same-origin YouTube results URL and a normal page load. YouTube owns rendering, scrolling, previews and native controls. The extension never creates native-looking fake cards, instantiates private YouTube components, hides loaded results, fabricates metadata, or replaces preview behavior. Native thumbnail hover behavior, view counts, relative dates, duration overlays, channel images/badges, captions and other labels remain whatever YouTube itself provides for that search/account/viewport. Their actual live behavior has not been tested here.
 
-Date tests cover all 18 intervals, month ends, leap years, year boundaries, timestamps, and invalid inputs. There are 12 date tests and 17 background/API tests. Browser fixtures cover all 18 interval clicks through the actual date/request/response code, multiple result layouts, fixed-time pagination, loading, quota/key/network/invalid-response errors, empty results, retries, disconnected messaging, missing replies, timeouts, native result suppression/restoration, nested filters, page reconstruction, late native inserts, query navigation, refresh, and stale responses. The missing-reply test accelerates only the 25-second UI timeout. Browser-level extension registration is a separate optional test, not established by the VM bridge.
+Original query terms and other URL parameters, including opaque native `sp` filters, are retained. Existing unquoted date operators are replaced when choosing another range; quoted literal date terms are retained. Native filters may intersect and narrow a date search: clear an existing native Upload date filter first when testing a wider range. The extension does not decode or rewrite YouTube’s undocumented `sp` protobuf to try to remove only one filter. It does not hide incompatible filters or promise every native-filter combination works.
 
-Live YouTube DOM inspection and authenticated API calls were unavailable in the build environment: no user API key was provided and the network proxy denied live YouTube access with HTTP 403. Cloud Chromium also reports that loading unpacked extensions is disabled by administrator policy, so the real-extension test mode could not execute. The browser/VM integration suite passed; real Google responses and actual Chrome extension messaging remain unverified here. Before release, load the unpacked extension in desktop Chrome with a configured key and verify actual native panel insertion, API pagination, native-filter transitions, back/forward, query changes, refresh, light/dark modes, narrow desktop layout, keyboard focus, and quota/key errors. The included fixture cannot establish production compatibility with YouTube's current UI.
+There is **no remembered filter**: no date choice is written to Chrome storage, local/session storage, cookies, history state, or a custom URL flag. No previous selection is reapplied to a new search, on refresh, or on navigation. Old `upload_interval` flags are ignored/removed. The date terms are part of the current native **search query**, so refreshing or revisiting that exact search naturally retains its explicit terms, just as if they had been typed manually. The extension may display those terms and offer to clear them; it does not infer or restore a preset. A new query without date terms remains unfiltered.
 
+## Why this approach
 
-## 1.0.1 filtering fix
+Version 1.0.1 used `search.list`, hid native result renderers, and built `.ud-card` HTML. API snippets do not include the complete private renderer data and interactive configuration used by YouTube’s preview components. Copying/constructing those internal components would be unsupported and cannot establish parity. Filtering only loaded native videos would produce incomplete results, so that approach is excluded. Rebuilding metadata and pretending an animated thumbnail is a native hover preview would also fail the objective.
 
-The original `mount()` used `ytd-search #contents ytd-section-list-renderer #contents`. This requires an extra `#contents` ancestor above the section-list renderer. When that ancestor is absent, the function returned silently **before** calling `search()`: click handlers and selection updates worked, but no background message or API request occurred. The original test fixture accidentally included that extra ancestor, hiding the bug. Running the new section-list fixture against 1.0.0 reproduces zero mounted result hosts and zero API requests.
+Native operators are implemented as an explicitly experimental **Approach A**, pending live validation. Approach B has no established supported integration here; this is not proof that native integration is impossible. This release does not claim that every requested range can be enforced reliably by YouTube. The old background API handler, secure key-management Options and its tests remain for compatibility, but native controls do not invoke it or open a fallback results interface. No automatic fallback silently changes modes.
 
-Version 1.0.1 starts the request independently of that selector. It mounts a separate results section under the search primary column (with search-root/main fallbacks), hides native result renderers while preserving the filter controls, and shows a visible layout error if no host can be found. It keeps request state separate from DOM nodes, remounts cached results after YouTube replaces nodes, and suppresses late native result inserts. Changing intervals discards stale responses. Pagination retains the initial time boundary. Loading, empty results, worker disconnection/timeout, malformed responses, key restrictions, API enablement and quota errors are visible and retryable. Saving a key is still not treated as a successful API request. Returned video timestamps are validated against the requested range as a defensive check in addition to server-side API filtering.
+The content script uses a batched MutationObserver and navigation events solely to attach/reset controls. There is no polling, stored selection, native result observation/filtering loop, or API request for a native search.
 
-### Update an existing installation on Mac
+## Development
 
-1. Download the latest repository ZIP from GitHub and extract it.
-2. Replace the old unpacked extension directory’s contents with the new `dist/` contents **at the same path**. This preserves the extension ID and its locally saved key.
-3. Open `chrome://extensions` and click the extension’s **Reload** button. Confirm version **1.0.1**.
-4. **Reload every open YouTube tab** so Chrome replaces the old content scripts. Reloading only the extension leaves existing tabs with stale script contexts.
-5. Search for bees, open Filters, and choose a custom interval. You should see “Searching YouTube…” followed by API results, an empty-result message, or an actionable error. If you load from a different folder or remove/reinstall, you may need to save the key again.
+Node 20+; no runtime or build dependencies:
+
+```
+npm test
+npm run build
+npm run package
+```
+
+Packaging uses only Node’s built-in modules, producing an installable ZIP with `manifest.json` at its root. The packaging command includes the README and all runtime files. No key or other credentials are packaged.
+
+Browser fixture tests use Playwright and an installed Chromium:
+
+```
+PLAYWRIGHT_MODULE=/path/to/playwright npm run test:browser
+```
+
+Or install Playwright in a separate tools directory and supply its absolute package path. `CHROMIUM_PATH` overrides `/usr/bin/chromium`. Playwright is only a test tool; it is not bundled with the extension.
+
+Unit tests cover preset order, local calendar periods, Monday/week transitions, month/year clamping, leap years, custom dates, invalid input, DST in America/New_York and Europe/London, and UTC offsets in Pacific/Kiritimati and Pacific/Honolulu. URL tests cover original queries, quoted literals, native parameters, replacement/clearing, and no inherited dates. Legacy background tests cover the API request/error path. Browser fixtures cover all presets, custom input/errors, real browser navigation/history, untouched native DOM node identity/listeners/metadata, dynamic controls/continuation nodes, keyboard controls, dark mode, and no extension API requests or filter storage. **Fixtures do not test YouTube’s server, genuine previews, or operator accuracy.**
+
+## Required live verification
+
+Live access attempted on October 29, 2026 returned HTTP 403 from the environment’s network proxy. No successful live date-operator test is claimed. Cloud administrator policy also prevented unpacked extension registration in the previous investigation; fixture script injection does not establish actual Chrome extension registration. On desktop Chrome with the unpacked extension:
+
+- Compare ordinary `bees` results with a fixed historical date range and confirm YouTube treats the terms as constraints rather than plain text. Open sampled videos and inspect full publication dates, including both boundaries. Check several queries and paginated results; a few plausible matches cannot prove complete enforcement.
+- Verify all calendar presets and rolling presets. Test Monday/Sunday, month/year changes, leap days, local midnight and a timezone differing from UTC. Check an intentionally empty or very narrow historical range and confirm no out-of-range videos appear. **If dates are ignored or boundaries differ, native date enforcement is unsupported for that case; do not report it as working.**
+- Test custom same-day and multi-day ranges; confirm intended end-date inclusion and no neighboring-day leakage.
+- Confirm genuine hover previews, overlays, durations, channels, views, badges, captions, shopping labels and infinite scrolling, where YouTube normally provides them.
+- Verify normal query editing, native filters/sorts, clear, refresh, browser back/forward and new searches. Confirm a new search without date terms receives no old filter.
+- Check panel reopening/reconstruction, keyboard access, light/dark mode and narrow desktop widths. DOM/localization changes can prevent control insertion; the normal native results should remain usable.
+
+The reliable outcome established here is **native component preservation and correct local date/URL construction**. Strict native upload-date enforcement remains a manual validation requirement.

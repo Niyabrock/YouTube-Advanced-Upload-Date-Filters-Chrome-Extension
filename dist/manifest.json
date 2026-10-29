@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "More YouTube Upload Dates",
-  "version": "1.0.1",
-  "description": "Rolling upload-date ranges inside YouTube Search Filters, powered by YouTube Data API.",
+  "version": "1.0.2",
+  "description": "Calendar and custom date searches in YouTube\u2019s native interface. Native date operators are experimental.",
   "permissions": [
     "storage"
   ],
@@ -21,6 +21,7 @@
       ],
       "js": [
         "dates.js",
+        "search.js",
         "content.js"
       ],
       "css": [

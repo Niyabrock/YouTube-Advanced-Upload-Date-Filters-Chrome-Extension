@@ -12,10 +12,10 @@ const fail=(status,reason)=>{response={ok:false,status,json:async()=>({error:{er
 test('documented query, calendar bounds, video type and pagination timestamp',async()=>{
  const result=await call({pageToken:'token'});assert.equal(result.nextPageToken,'next');
  assert.equal(requested.origin,'https://www.googleapis.com');assert.equal(requested.pathname,'/youtube/v3/search');
- for(const [name,value] of Object.entries({publishedAfter:'2021-10-28T12:00:00.000Z',publishedBefore:'2024-10-28T12:00:00.000Z',q:'bees',pageToken:'token',type:'video',part:'snippet',order:'relevance',maxResults:'25',key:'local-key'}))assert.equal(requested.searchParams.get(name),value,name);
+ for(const [name,value] of Object.entries({publishedAfter:UploadDates.range('y3',new Date('2024-10-28T12:00:00Z')).publishedAfter,publishedBefore:'2024-10-28T12:00:00.000Z',q:'bees',pageToken:'token',type:'video',part:'snippet',order:'relevance',maxResults:'25',key:'local-key'}))assert.equal(requested.searchParams.get(name),value,name);
 });
-test('all 18 intervals execute an API search with correct bounds',async()=>{
- for(const item of UploadDates.intervals){const result=await call({interval:item.id});assert.equal(result.error,undefined);assert.equal(requested.searchParams.get('publishedAfter'),UploadDates.range(item.id,new Date('2024-10-28T12:00:00Z')).publishedAfter);}
+test('legacy API accepts every new preset and custom dates',async()=>{
+ for(const item of UploadDates.intervals){const custom=item.id==='custom'?{start:'2024-02-01',end:'2024-03-01'}:undefined;const result=await call({interval:item.id,custom});assert.equal(result.error,undefined);assert.equal(requested.searchParams.get('publishedAfter'),UploadDates.range(item.id,new Date('2024-10-28T12:00:00Z'),custom).publishedAfter);}
 });
 test('missing key produces visible guidance without making an API request',async()=>{key='';const before=fetchCount;assert.match((await call()).error,/Configure/);assert.equal(fetchCount,before);key='local-key';});
 test('invalid interval, query, time and page token are rejected',async()=>{

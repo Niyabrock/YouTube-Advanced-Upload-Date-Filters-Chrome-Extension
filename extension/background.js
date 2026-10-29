@@ -23,7 +23,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     const now=message.asOf?new Date(message.asOf):new Date();
     if(!Number.isFinite(now.getTime()) || now.getTime()>Date.now()+60000) throw new SearchError('Invalid search timestamp. Select the interval again.');
     if(!UploadDates.intervals.some(x=>x.id===message.interval))throw new SearchError('Invalid date interval. Reload this YouTube tab.');
-    const bounds=UploadDates.range(message.interval,now);
+    const bounds=UploadDates.range(message.interval,now,message.custom);
     const params=new URLSearchParams({part:'snippet',type:'video',q,maxResults:'25',order:'relevance',...bounds,key:apiKey.trim()});
     if (message.pageToken) {
       if(typeof message.pageToken!=='string'||message.pageToken.length>512) throw new SearchError('Invalid page token. Select the interval again.');
