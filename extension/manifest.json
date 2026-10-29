@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "More YouTube Upload Dates",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Calendar and custom date searches in YouTube\u2019s native interface. Native date operators are experimental.",
   "permissions": [
     "storage"
